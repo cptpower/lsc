@@ -417,10 +417,11 @@ def print_table(infos, use_color):
     max_owner = max(len(x['owner']) for x in infos)
     max_group = max(len(x['group']) for x in infos)
     max_size = max(len(x['size']) for x in infos)
+    max_time = max(len(x['time']) for x in infos)
     max_name = max(x['display_name_len'] for x in infos)
 
     for x in infos:
-        prefix = f"{x['mode']}  {x['nlink']:>{max_nlink}} {x['owner']:<{max_owner}}  {x['group']:<{max_group}}  {x['size']:>{max_size}} {x['time']}"
+        prefix = f"{x['mode']}  {x['nlink']:>{max_nlink}} {x['owner']:<{max_owner}}  {x['group']:<{max_group}}  {x['size']:>{max_size}} {x['time']:<{max_time}}"
         
         # Pad the name correctly ignoring ANSI colors
         name_padding = " " * (max_name - x['display_name_len'])
