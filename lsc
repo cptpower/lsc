@@ -11,13 +11,7 @@ import plistlib
 import zipfile
 import shlex
 import argparse
-import locale
 
-# Initialize locale for correct date representation (e.g. Swedish month names)
-try:
-    locale.setlocale(locale.LC_ALL, '')
-except Exception:
-    pass
 
 # Load libc to access macOS extended attributes
 libc = None
@@ -242,22 +236,14 @@ def format_mtime(mtime, now):
     six_months_sec = 182 * 24 * 3600
     show_year = abs(now - mtime) > six_months_sec
     
-    lang = locale.getlocale(locale.LC_TIME)[0] or ""
-    is_sv = lang.startswith("sv") or "swedish" in lang.lower()
-    
-    month = dt.strftime("%b")
+    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    month = months[dt.month - 1]
     day = f"{dt.day:>2}"
     
-    if is_sv:
-        if show_year:
-            return f"{day} {month:<4}  {dt.year}"
-        else:
-            return f"{day} {month:<4} {dt.strftime('%H:%M')}"
+    if show_year:
+        return f"{month} {day}  {dt.year}"
     else:
-        if show_year:
-            return f"{month} {day}  {dt.year}"
-        else:
-            return f"{month} {day} {dt.strftime('%H:%M')}"
+        return f"{month} {day} {dt.strftime('%H:%M')}"
 
 def format_size(size, human=False):
     if not human:
