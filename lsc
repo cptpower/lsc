@@ -529,18 +529,37 @@ def set_comment_for_path(path, comment_text):
         print(f"lsc: Failed to write {ion_path}: {e}", file=sys.stderr)
 
     # 2. Update macOS Finder comment
-    if libc and sys.platform == 'darwin':
+    if sys.platform == 'darwin':
+        import subprocess
+        escaped_path = abs_path.replace('\\', '\\\\').replace('"', '\\"')
+        escaped_comment = cleaned.replace('\\', '\\\\').replace('"', '\\"')
+        applescript_ok = False
         try:
-            path_bytes = abs_path.encode('utf-8')
-            name_bytes = 'com.apple.metadata:kMDItemFinderComment'.encode('utf-8')
-            if cleaned:
-                # Format as binary plist list containing the comment
-                data = plistlib.dumps([cleaned], fmt=plistlib.FMT_BINARY)
-                libc.setxattr(path_bytes, name_bytes, data, len(data), 0, 0)
-            else:
-                libc.removexattr(path_bytes, name_bytes, 0)
+            args = [
+                'osascript',
+                '-e', f'set myFile to POSIX file "{escaped_path}" as alias',
+                '-e', f'tell application "Finder" to set comment of myFile to "{escaped_comment}"'
+            ]
+            res = subprocess.run(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
+            if res.returncode == 0:
+                applescript_ok = True
         except Exception:
             pass
+
+        # If AppleScript fails or as fallback, write via libc to update extended attributes
+        if not applescript_ok and libc:
+            try:
+                path_bytes = abs_path.encode('utf-8')
+                name_bytes = 'com.apple.metadata:kMDItemFinderComment'.encode('utf-8')
+                if cleaned:
+                    # Format as binary plist list containing the comment
+                    data = plistlib.dumps([cleaned], fmt=plistlib.FMT_BINARY)
+                    libc.setxattr(path_bytes, name_bytes, data, len(data), 0, 0)
+                else:
+                    libc.removexattr(path_bytes, name_bytes, 0)
+            except Exception:
+                pass
+
 
 def main():
     parser = argparse.ArgumentParser(description="ls-al clone with comment column support", add_help=False)
