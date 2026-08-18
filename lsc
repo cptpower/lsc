@@ -13,7 +13,7 @@ import shlex
 import argparse
 import locale
 
-# Initialize locale for correct date representation (e.g. Russian month names)
+# Initialize locale for correct date representation (e.g. Swedish month names)
 try:
     locale.setlocale(locale.LC_ALL, '')
 except Exception:
@@ -183,12 +183,12 @@ def format_mtime(mtime, now):
     show_year = abs(now - mtime) > six_months_sec
     
     lang = locale.getlocale(locale.LC_TIME)[0] or ""
-    is_ru = lang.startswith("ru") or "russian" in lang.lower()
+    is_sv = lang.startswith("sv") or "swedish" in lang.lower()
     
     month = dt.strftime("%b")
     day = f"{dt.day:>2}"
     
-    if is_ru:
+    if is_sv:
         if show_year:
             return f"{day} {month:<4}  {dt.year}"
         else:
