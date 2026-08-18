@@ -34,6 +34,19 @@ List all files (including hidden files starting with `.`):
 lsc -a
 ```
 
+### Adding or Modifying Comments
+
+You can set or clear a comment for a file or directory using the `--set-comment` option. This will save the comment directly into the local `descript.ion` file and, if you are running macOS, it will also write the comment to the file's macOS Finder Comment attribute:
+
+```bash
+lsc --set-comment "My awesome file" example.txt
+```
+
+To clear a comment:
+```bash
+lsc --set-comment "" example.txt
+```
+
 ### Saving Comments to Git
 
 Since macOS Finder comments are stored in filesystem extended attributes, they cannot be tracked by Git directly. You can export them into standard `descript.ion` files:
@@ -52,7 +65,7 @@ git commit -m "Save file comments"
 ## CLI Options
 
 ```
-usage: lsc [--help] [-l] [-a] [-A] [-h] [-d] [-r] [-S] [-t] [--color {always,never,auto}] [--export-comments] [paths ...]
+usage: lsc [--help] [-l] [-a] [-A] [-h] [-d] [-r] [-S] [-t] [--color {always,never,auto}] [--export-comments] [--set-comment COMMENT] [paths ...]
 
 positional arguments:
   paths                 files or directories to list (default: '.')
@@ -70,4 +83,6 @@ options:
   --color {always,never,auto}
                         colorize the output (default: auto)
   --export-comments     export macOS Finder comments to descript.ion files
+  --set-comment COMMENT
+                        set comment for specified files or directories
 ```

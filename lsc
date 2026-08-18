@@ -32,6 +32,14 @@ if sys.platform == 'darwin':
         # ssize_t listxattr(const char *path, char *namebuf, size_t size, int options);
         libc.listxattr.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_size_t, ctypes.c_int]
         libc.listxattr.restype = ctypes.c_ssize_t
+
+        # int setxattr(const char *path, const char *name, const void *value, size_t size, u_int32_t position, int options);
+        libc.setxattr.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_uint32, ctypes.c_int]
+        libc.setxattr.restype = ctypes.c_int
+
+        # int removexattr(const char *path, const char *name, int options);
+        libc.removexattr.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int]
+        libc.removexattr.restype = ctypes.c_int
     except Exception:
         libc = None
 
@@ -466,6 +474,74 @@ def export_comments_for_dir(dirpath):
         except Exception as e:
             print(f"lsc: Failed to write {ion_path}: {e}", file=sys.stderr)
 
+def set_comment_for_path(path, comment_text):
+    abs_path = os.path.abspath(path)
+    parent_dir = os.path.dirname(abs_path)
+    filename = os.path.basename(abs_path)
+    if not filename:
+        print(f"lsc: Invalid path for comment: {path}", file=sys.stderr)
+        return
+
+    cleaned = clean_comment(comment_text)
+
+    # 1. Update descript.ion
+    descriptions = {}
+    ion_path = os.path.join(parent_dir, "descript.ion")
+    if os.path.exists(ion_path):
+        try:
+            with open(ion_path, "r", encoding="utf-8", errors="ignore") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    try:
+                        parts = shlex.split(line)
+                    except ValueError:
+                        parts = line.split(maxsplit=1)
+                    if len(parts) >= 2:
+                        fname = parts[0].strip('"').strip("'")
+                        desc = " ".join(parts[1:])
+                        descriptions[fname] = desc
+        except Exception:
+            pass
+
+    if cleaned:
+        descriptions[filename] = cleaned
+    else:
+        descriptions.pop(filename, None)
+
+    try:
+        if descriptions:
+            sorted_items = sorted(descriptions.items())
+            with open(ion_path, "w", encoding="utf-8") as f:
+                for fname, desc in sorted_items:
+                    if ' ' in fname or '"' in fname or "'" in fname:
+                        escaped_fname = f'"{fname}"'
+                    else:
+                        escaped_fname = fname
+                    f.write(f"{escaped_fname} {desc}\n")
+            print(f"lsc: Saved comment for '{filename}' in {ion_path}")
+        else:
+            if os.path.exists(ion_path):
+                os.remove(ion_path)
+                print(f"lsc: Removed empty {ion_path}")
+    except Exception as e:
+        print(f"lsc: Failed to write {ion_path}: {e}", file=sys.stderr)
+
+    # 2. Update macOS Finder comment
+    if libc and sys.platform == 'darwin':
+        try:
+            path_bytes = abs_path.encode('utf-8')
+            name_bytes = 'com.apple.metadata:kMDItemFinderComment'.encode('utf-8')
+            if cleaned:
+                # Format as binary plist list containing the comment
+                data = plistlib.dumps([cleaned], fmt=plistlib.FMT_BINARY)
+                libc.setxattr(path_bytes, name_bytes, data, len(data), 0, 0)
+            else:
+                libc.removexattr(path_bytes, name_bytes, 0)
+        except Exception:
+            pass
+
 def main():
     parser = argparse.ArgumentParser(description="ls-al clone with comment column support", add_help=False)
     parser.add_argument('--help', action='help', help='show this help message and exit')
@@ -480,6 +556,7 @@ def main():
     parser.add_argument('-t', action='store_true', dest='sort_time', help="sort by modification time")
     parser.add_argument('--color', choices=['always', 'never', 'auto'], default='auto', help="colorize the output")
     parser.add_argument('--export-comments', action='store_true', help="export macOS Finder comments to descript.ion files")
+    parser.add_argument('--set-comment', type=str, metavar='COMMENT', help="set comment for specified files or directories")
 
     args = parser.parse_args()
 
@@ -495,6 +572,14 @@ def main():
             export_comment_for_path_itself(path)
             if os.path.isdir(path) and not os.path.islink(path):
                 export_comments_for_dir(path)
+        sys.exit(0)
+
+    if args.set_comment is not None:
+        for path in args.paths:
+            if not os.path.exists(path) and not os.path.islink(path):
+                print(f"lsc: {path}: No such file or directory", file=sys.stderr)
+                continue
+            set_comment_for_path(path, args.set_comment)
         sys.exit(0)
 
     # Color detection
