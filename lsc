@@ -43,17 +43,77 @@ if sys.platform == 'darwin':
     except Exception:
         libc = None
 
-# ANSI colors for styling
-COLORS = {
-    'dir': '\033[1;36m',
-    'link': '\033[35m',
-    'exec': '\033[1;32m',
-    'socket': '\033[36m',
-    'fifo': '\033[33m',
-    'device': '\033[1;33m',
-    'reset': '\033[0m',
-    'comment': '\033[37m'  # Light gray for comments
-}
+def parse_env_colors():
+    # Start with our default fallback colors
+    colors = {
+        'dir': '\033[1;36m',
+        'link': '\033[35m',
+        'exec': '\033[1;32m',
+        'socket': '\033[36m',
+        'fifo': '\033[33m',
+        'device': '\033[1;33m',
+        'reset': '\033[0m',
+        'comment': '\033[37m'  # Light gray for comments
+    }
+
+    # 1. Try to parse GNU LS_COLORS
+    gnu_colors = os.environ.get('LS_COLORS')
+    if gnu_colors:
+        key_mapping = {
+            'di': 'dir',
+            'ln': 'link',
+            'ex': 'exec',
+            'so': 'socket',
+            'pi': 'fifo',
+            'bd': 'device',
+            'cd': 'device'
+        }
+        for item in gnu_colors.split(':'):
+            if '=' in item:
+                k, v = item.split('=', 1)
+                if k in key_mapping:
+                    colors[key_mapping[k]] = f"\033[{v}m"
+        return colors
+
+    # 2. Try to parse BSD LSCOLORS (common on macOS)
+    bsd_colors = os.environ.get('LSCOLORS')
+    if bsd_colors and len(bsd_colors) >= 22:
+        bsd_fg = {
+            'a': '30', 'b': '31', 'c': '32', 'd': '33', 'e': '34', 'f': '35', 'g': '36', 'h': '37',
+            'A': '1;30', 'B': '1;31', 'C': '1;32', 'D': '1;33', 'E': '1;34', 'F': '1;35', 'G': '1;36', 'H': '1;37'
+        }
+        bsd_bg = {
+            'a': '40', 'b': '41', 'c': '42', 'd': '43', 'e': '44', 'f': '45', 'g': '46', 'h': '47'
+        }
+        
+        index_mapping = {
+            0: 'dir',
+            1: 'link',
+            2: 'socket',
+            3: 'fifo',
+            4: 'exec',
+            5: 'device',
+            6: 'device'
+        }
+        
+        for i, key in index_mapping.items():
+            fg_char = bsd_colors[2*i]
+            bg_char = bsd_colors[2*i + 1]
+            
+            codes = []
+            if fg_char in bsd_fg:
+                codes.append(bsd_fg[fg_char])
+            if bg_char in bsd_bg:
+                codes.append(bsd_bg[bg_char])
+            
+            if codes:
+                colors[key] = f"\033[{';'.join(codes)}m"
+        return colors
+
+    return colors
+
+# ANSI colors for styling, parsed from environment or falling back to defaults
+COLORS = parse_env_colors()
 
 def colorize(text, color_name, use_color):
     if not use_color:
